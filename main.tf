@@ -36,7 +36,7 @@ data "template_file" "cloud_init" {
   template = templatefile("${path.module}/cloud-init/cloud_init.cfg", {
     ssh_public_key    = file("${var.ssh_public_key_path}")
     hostname          = "${each.value.name}"
-    openstack_version = "${var.openstack_version}"
+    openstack_rev = "${var.openstack_rev}"
   })
 }
 

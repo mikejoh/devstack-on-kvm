@@ -1,4 +1,4 @@
-variable "openstack_version" {
+variable "openstack_rev" {
   type = string
 }
 
