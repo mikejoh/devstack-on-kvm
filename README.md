@@ -2,7 +2,7 @@
 
 Deploy [Devstack](https://docs.openstack.org/devstack/latest/) on KVM! 🚀
 
-_For those occastions when you want to test things against OpenStack (APIs) but you don't want to use the one(s) in production._ 😏
+_For those occasions when you want to test things against OpenStack (APIs) but you don't want to use the one(s) in production._ 😏
 
 ## ✅ Pre-requisites
 
