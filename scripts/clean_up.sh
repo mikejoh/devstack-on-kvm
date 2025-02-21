@@ -22,5 +22,5 @@ rm -rf terraform.tfstate*
 
 sudo virsh net-undefine devstack_net || true
 sudo virsh net-destroy devstack_net || true
-sudo virsh pool-undefine devstack || true 
+sudo virsh pool-undefine devstack || true
 sudo virsh pool-destroy devstack || true
