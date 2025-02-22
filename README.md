@@ -11,6 +11,8 @@ _For those occasions when you want to test things against OpenStack (APIs) but y
 
 ## 🗒️ Important notes
 
+It'll take some time for the Devstack installation to complete, please run `sudo virsh console devstack01` to follow the installation. Press `Ctrl+5` to exit the console.
+
 Info on how to perform configuration cusomization when installing Devstack check [this](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst) out.
 
 ## 🏃 Getting started
@@ -46,6 +48,12 @@ PRIVATE_SSH_KEY=~/.ssh/devstack scripts/ssh.sh
 ```
 
 _Make sure you're using the private key that matches the public key added as part of the cluster node provisioning. We're adding a user called `cloud` by default that has the provided public key as one of the `ssh_authorized_keys`._
+
+Run this to generate a new SSH key pair, make sure to point to the public key and it's path in the `tfvars` file:
+
+```
+ssh-keygen -t ed25519 -C "devstack-kvm" -f ~/.ssh/devstack
+```
 
 #### Using `tmux` and `xpanes` to SSH to all available nodes
 
