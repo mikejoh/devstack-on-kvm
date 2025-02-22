@@ -11,11 +11,11 @@ _For those occasions when you want to test things against OpenStack (APIs) but y
 
 ## 🗒️ Important notes
 
-TODO: Add notes
+Info on how to perform configuration cusomization when installing Devstack check [this](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst) out.
 
 ## 🏃 Getting started
 
-TODO: Provide a proper explaination on how to allow traffic to and from VM via `ufw` (if this is enabled for the user)
+Before starting, stop `ufw` temporarily if it's running locally.
 
 ### Provision cluster nodes
 
