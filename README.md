@@ -57,12 +57,28 @@ tmux
 sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -d"/" -f1 | xpanes -l ev -c 'ssh -l cloud -i <PRIVATE_KEY> {}'
 ```
 
+### Troubleshooting
+
+#### Devstack logs
+
+Various ways of checking logs:
+
+```
+journalctl -f -u devstack@*
+journalctl -f -u devstack@* | grep -v dstat
+
+```
+
+#### Various encountered errors and problems
+
+When updating (increasing) the `image_size_total` in Glance via the `openstack` CLI the following where seen in the `g-api` logs:
+
+```
+Unhandled error: oslo_db.exception.DBDeadlock: (pymysql.err.OperationalError) (1205, 'Lock wait timeout exceeded; try restarting transaction')
+```
+
+Fixed by restarting the `mysql` service in the Devstack VM.
+
 ### Clean up
 
 Use the provided `clean_up.sh` script in the `scripts/` directory.
-
-### Todo
-
-* Create a `stack` user, problems with `/opt/stack` otherwise, use provided script or create a user manually.
-* Investigate why the `/opt/stack/requirements` directory were empty
-* Row 60 and below in the cloud-init file!
