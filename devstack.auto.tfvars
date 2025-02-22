@@ -7,8 +7,8 @@ devstack_network_cidr = "192.168.11.0/24"
 devstack_nodes = [
   {
     name      = "devstack01"
-    vcpu      = 4
+    vcpu      = 6
     memory    = 12288
-    disk_size = 10737418240
+    disk_size = 42949672960
   }
 ]
