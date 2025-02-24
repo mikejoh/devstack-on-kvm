@@ -9,6 +9,6 @@ devstack_nodes = [
     name      = "devstack01"
     vcpu      = 6
     memory    = 12288
-    disk_size = 42949672960
+    disk_size = 107374182400
   }
 ]

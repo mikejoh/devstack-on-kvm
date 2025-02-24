@@ -74,7 +74,6 @@ Various ways of checking logs:
 ```
 journalctl -f -u devstack@*
 journalctl -f -u devstack@* | grep -v dstat
-
 ```
 
 #### Various encountered errors and problems
@@ -86,6 +85,11 @@ Unhandled error: oslo_db.exception.DBDeadlock: (pymysql.err.OperationalError) (1
 ```
 
 Fixed by restarting the `mysql` service in the Devstack VM.
+
+### Links
+
+* https://docs.openstack.org/devstack/latest/guides/devstack-with-octavia.html
+* https://docs.openstack.org/octavia/latest/admin/flavors.html
 
 ### Clean up
 
