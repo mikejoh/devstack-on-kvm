@@ -34,9 +34,9 @@ data "template_file" "cloud_init" {
   for_each = { for node in var.devstack_nodes : "${node.name}" => node }
 
   template = templatefile("${path.module}/cloud-init/cloud_init.cfg", {
-    ssh_public_key    = file("${var.ssh_public_key_path}")
-    hostname          = "${each.value.name}"
-    openstack_rev = "${var.openstack_rev}"
+    ssh_public_key = file("${var.ssh_public_key_path}")
+    hostname       = "${each.value.name}"
+    openstack_rev  = "${var.openstack_rev}"
   })
 }
 
@@ -62,6 +62,10 @@ resource "libvirt_domain" "nodes" {
   memory      = each.value.memory
 
   cloudinit = libvirt_cloudinit_disk.cloud_init[each.key].id
+
+  cpu {
+    mode = "host-passthrough"
+  }
 
   disk {
     volume_id = libvirt_volume.resized_volume[each.key].id
