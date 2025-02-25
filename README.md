@@ -67,27 +67,23 @@ sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -
 
 In DevStack the `public` network will have the following range by default: `172.24.4.0/24`.
 
-1. Assing floating IPs to e.g. Loadbalancers or instances
-2. Update security groups if needed, i had to allow more in the `default` security group (created automatically)
-3. Update your local routing table, i needed to do the following:
+1. Enable proxy arp in the `devstack01` VM primary interface:
+
+```
+echo 1 > /proc/sys/net/ipv4/conf/ens3/proxy_arp
+```
+
+_Please note that my interface were named `ens3`._
+
+2. Assing floating IPs to e.g. Loadbalancers or instances
+3. Update security groups if needed, i had to allow more in the `default` security group (created automatically)
+4. Update your local routing table, i needed to do the following:
 
 ```
 sudo ip route add 172.24.4.0/24 dev virbr1
 ```
 
-`virbr1` was the bridge that my `devstack01` VM was connected to.
-
-### Create instances
-
-```
-TODO!
-```
-
-### Create load-balancer
-
-```
-TODO!
-```
+`virbr1` was the bridge that my `devstack01` VM was connected to as of writing this.
 
 ### Troubleshooting
 
