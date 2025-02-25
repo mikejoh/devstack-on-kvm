@@ -1,6 +1,6 @@
-# Devstack on KVM
+# DevStack on KVM
 
-Deploy [Devstack](https://docs.openstack.org/devstack/latest/) on KVM! 🚀
+Deploy [DevStack](https://docs.openstack.org/devstack/latest/) on KVM! 🚀
 
 _For those occasions when you want to test things against OpenStack (APIs) but you don't want to use the one(s) in production._ 😏
 
@@ -11,13 +11,11 @@ _For those occasions when you want to test things against OpenStack (APIs) but y
 
 ## 🗒️ Important notes
 
-It'll take some time for the Devstack installation to complete, please run `sudo virsh console devstack01` to follow the installation. Press `Ctrl+5` to exit the console.
-
-Info on how to perform configuration cusomization when installing Devstack check [this](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst) out.
+* It'll take some time for the DevStack installation to complete, please run `sudo virsh console devstack01` to follow the installation. Press `Ctrl+5` to exit the console. Please note that we're installing Octavia with everything included (like building of the Octavia worker image), so please be patient.
+* Before starting, stop `ufw` temporarily if it's running locally, i haven't found a good combination of FW rules yet.
+* Info on how to perform configuration cusomization when installing DevStack check [this](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst) out.
 
 ## 🏃 Getting started
-
-Before starting, stop `ufw` temporarily if it's running locally.
 
 ### Provision cluster nodes
 
@@ -65,9 +63,35 @@ tmux
 sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -d"/" -f1 | xpanes -l ev -c 'ssh -l cloud -i <PRIVATE_KEY> {}'
 ```
 
+### How to reach the public IP address range in DevStack
+
+In DevStack the `public` network will have the following range by default: 172.24.4.0/24.
+
+1. Assing floating IPs to e.g. Loadbalancers or instances
+2. Update security groups if needed
+3. Update your local routing table, i needed to do the following:
+
+```
+sudo ip route add 172.24.4.0/24 dev virbr1
+```
+
+`virbr1` was the bridge that my `devstack01` VM was connected to.
+
+### Create instances
+
+```
+TODO!
+```
+
+### Create load-balancer
+
+```
+TODO!
+```
+
 ### Troubleshooting
 
-#### Devstack logs
+#### DevStack logs
 
 Various ways of checking logs:
 
@@ -84,12 +108,7 @@ When updating (increasing) the `image_size_total` in Glance via the `openstack` 
 Unhandled error: oslo_db.exception.DBDeadlock: (pymysql.err.OperationalError) (1205, 'Lock wait timeout exceeded; try restarting transaction')
 ```
 
-Fixed by restarting the `mysql` service in the Devstack VM.
-
-### Links
-
-* https://docs.openstack.org/devstack/latest/guides/devstack-with-octavia.html
-* https://docs.openstack.org/octavia/latest/admin/flavors.html
+Fixed by restarting the `mysql` service in the DevStack VM.
 
 ### Clean up
 
