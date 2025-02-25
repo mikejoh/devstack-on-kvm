@@ -65,10 +65,10 @@ sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -
 
 ### How to reach the public IP address range in DevStack
 
-In DevStack the `public` network will have the following range by default: 172.24.4.0/24.
+In DevStack the `public` network will have the following range by default: `172.24.4.0/24`.
 
 1. Assing floating IPs to e.g. Loadbalancers or instances
-2. Update security groups if needed
+2. Update security groups if needed, i had to allow more in the `default` security group (created automatically)
 3. Update your local routing table, i needed to do the following:
 
 ```
