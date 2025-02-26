@@ -75,7 +75,7 @@ echo 1 > /proc/sys/net/ipv4/conf/ens3/proxy_arp
 
 _Please note that my interface were named `ens3`._
 
-2. Assing floating IPs to e.g. Loadbalancers or instances
+2. Associating floating IPs to e.g. Loadbalancers or instances
 3. Update security groups if needed, i had to allow more in the `default` security group (created automatically)
 4. Update your local routing table, i needed to do the following:
 
