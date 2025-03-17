@@ -89,7 +89,7 @@ sudo ip route add 172.24.4.0/24 dev virbr1
 
 #### DevStack logs
 
-Various ways of checking logs:
+Checking logs:
 
 ```
 journalctl -f -u devstack@*
@@ -108,4 +108,4 @@ Fixed by restarting the `mysql` service in the DevStack VM.
 
 ### Clean up
 
-Run tofu destroy.
+Run `tofu destroy`.
