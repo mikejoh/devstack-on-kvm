@@ -49,6 +49,13 @@ To find out the IP addresses of the VMs you can run the following using `virsh`:
 sudo virsh net-dhcp-leases devstack_net
 ```
 
+The DevStack dashboard (Horizon) can be logged into using the following credentials:
+
+```
+Username: demo
+Password: secret
+```
+
 #### SSH to the DevStack instance
 
 This requires that you have [`fzf`](https://github.com/junegunn/fzf) installed.
