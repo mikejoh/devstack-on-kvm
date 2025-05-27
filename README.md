@@ -25,11 +25,23 @@ _For those occasions when you want to test things against OpenStack (APIs) but y
 4. Run `tofu apply`
 5. The needed nodes shall be provisioned with everything included for you to start bootstrapping the cluster.
 
-### Accessing the nodes
+To see the progress of the DevStack installation, run the following command:
+
+```bash
+sudo virsh console devstack01
+```
+
+### Accessing the DevStack environment
 
 _Remember to start your VMs after a reboot, they'll be shut off by default. Run `sudo virsh start` for each VM!_
 
-#### SSH to one node a time
+#### Browse to the DevStack dashboard
+
+Open your browser and go to the following URL:
+
+```bash
+http://<devstack01-ip>/
+```
 
 To find out the IP addresses of the VMs you can run the following using `virsh`:
 
@@ -37,7 +49,7 @@ To find out the IP addresses of the VMs you can run the following using `virsh`:
 sudo virsh net-dhcp-leases devstack_net
 ```
 
-#### SSH using the provided helper script
+#### SSH to the DevStack instance
 
 This requires that you have [`fzf`](https://github.com/junegunn/fzf) installed.
 
