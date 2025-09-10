@@ -104,9 +104,17 @@ sudo ip route add 172.24.4.0/24 dev virbr1
 
 `virbr1` was the bridge that my `devstack01` VM was connected to as of writing this.
 
-### Troubleshooting
+## 🛠️ Troubleshooting
 
-#### DevStack logs
+### List all `systemd` units related to DevStack and their statuses
+
+```
+systemctl list-units 'devstack@*'
+```
+
+For `systemd` related documentation see [this](https://docs.openstack.org/devstack/latest/systemd.html) link.
+
+### DevStack logs
 
 Checking logs:
 
@@ -115,7 +123,7 @@ journalctl -f -u devstack@*
 journalctl -f -u devstack@<service>
 ```
 
-#### Various encountered errors and problems
+### Various encountered errors and problems
 
 When updating (increasing) the `image_size_total` in Glance via the `openstack` CLI the following where seen in the `g-api` logs:
 
