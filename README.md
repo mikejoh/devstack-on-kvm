@@ -104,6 +104,12 @@ sudo ip route add 172.24.4.0/24 dev virbr1
 
 `virbr1` was the bridge that my `devstack01` VM was connected to as of writing this.
 
+### Cleaning things up
+
+Run `tofu destroy`.
+
+_Note that this destroys all of KVM related objects._
+
 ## 🛠️ Troubleshooting
 
 ### List all `systemd` units related to DevStack and their statuses
@@ -125,14 +131,90 @@ journalctl -f -u devstack@<service>
 
 ### Various encountered errors and problems
 
+#### Updating objects in Glance 
+
 When updating (increasing) the `image_size_total` in Glance via the `openstack` CLI the following where seen in the `g-api` logs:
 
 ```
 Unhandled error: oslo_db.exception.DBDeadlock: (pymysql.err.OperationalError) (1205, 'Lock wait timeout exceeded; try restarting transaction')
 ```
 
-Fixed by restarting the `mysql` service in the DevStack VM.
+Fixed by restarting the `mysql` service in the DevStack VM:
 
-### Clean up
+```
+systemctl restart mysql
+```
 
-Run `tofu destroy`.
+#### Error when listing instances after starting the DevStack VM
+
+Horizon stack trace:
+
+```
+Traceback (most recent call last):
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/opt/stack/horizon/horizon/decorators.py", line 51, in dec
+    return view_func(request, *args, **kwargs)
+  File "/opt/stack/horizon/horizon/decorators.py", line 35, in dec
+    return view_func(request, *args, **kwargs)
+  File "/opt/stack/horizon/horizon/decorators.py", line 35, in dec
+    return view_func(request, *args, **kwargs)
+  File "/opt/stack/horizon/horizon/decorators.py", line 111, in dec
+    return view_func(request, *args, **kwargs)
+  File "/opt/stack/horizon/horizon/decorators.py", line 83, in dec
+    return view_func(request, *args, **kwargs)
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/opt/stack/horizon/horizon/tables/views.py", line 222, in get
+    handled = self.construct_tables()
+  File "/opt/stack/horizon/horizon/tables/views.py", line 213, in construct_tables
+    handled = self.handle_table(table)
+  File "/opt/stack/horizon/horizon/tables/views.py", line 122, in handle_table
+    data = self._get_data_dict()
+  File "/opt/stack/horizon/horizon/tables/views.py", line 251, in _get_data_dict
+    self._data = {self.table_class._meta.name: self.get_data()}
+  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 156, in get_data
+    futurist_utils.call_functions_parallel(
+  File "/opt/stack/horizon/openstack_dashboard/utils/futurist_utils.py", line 50, in call_functions_parallel
+    return tuple(f.result() for f in futures)
+  File "/opt/stack/horizon/openstack_dashboard/utils/futurist_utils.py", line 50, in <genexpr>
+    return tuple(f.result() for f in futures)
+  File "/usr/lib/python3.10/concurrent/futures/_base.py", line 451, in result
+    return self.__get_result()
+  File "/usr/lib/python3.10/concurrent/futures/_base.py", line 403, in __get_result
+    raise self._exception
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/futurist/_utils.py", line 45, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 148, in _get_volumes
+    exceptions.handle(self.request, ignore=True)
+  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 145, in _get_volumes
+    volumes = api.cinder.volume_list(self.request)
+  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 298, in volume_list
+    volumes, _, __ = volume_list_paged(
+  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 337, in volume_list_paged
+    c_client = _cinderclient_with_generic_groups(request)
+  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 289, in _cinderclient_with_generic_groups
+    return _cinderclient_with_features(request, 'groups')
+  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 271, in _cinderclient_with_features
+    version = get_microversion(request, features)
+  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 263, in get_microversion
+    min_ver, max_ver = cinder_client.get_server_version(cinder_url,
+  File "/opt/stack/data/venv/lib/python3.10/site-packages/cinderclient/client.py", line 119, in get_server_version
+    data = json.loads(response.text)
+  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+```
+
+Which pointed at a Cinder related problem. I fixed this by restarting the Cinder API and Cinder Volume services:
+
+```
+systemctl restart devstack@c-api.service devstack@c-vol.service
+```
