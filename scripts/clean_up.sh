@@ -2,25 +2,51 @@
 
 set -euo pipefail
 
-# Remove all resources created with tofu
-for dom in $(sudo virsh list --all --name); do
-    echo "Shutting down $dom..."
-    sudo virsh shutdown "$dom" || true
+# Tear down libvirt resources created by this repo: domains whose name starts
+# with "<cluster_name>-" (read from devstack01.auto.tfvars), the devstack_net
+# network, the devstack pool, and the local tofu state files. Leaves unrelated
+# VMs untouched.
 
-    # Wait for the VM to stop
-    while [[ $(sudo virsh domstate "$dom") != "shut off" ]]; do
-        echo "Waiting for $dom to stop..."
-        sleep 1
-    done
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TFVARS="${REPO_ROOT}/devstack01.auto.tfvars"
 
-    # Undefine and remove storage once stopped
+if [[ ! -f $TFVARS ]]; then
+    echo "error: ${TFVARS} not found" >&2
+    exit 1
+fi
+
+CLUSTER_NAME=$(awk -F'=' '
+    /^[[:space:]]*cluster_name[[:space:]]*=/ {
+        gsub(/["[:space:]]/, "", $2)
+        print $2
+        exit
+    }' "$TFVARS")
+
+if [[ -z ${CLUSTER_NAME:-} ]]; then
+    echo "error: could not parse cluster_name from ${TFVARS}" >&2
+    exit 1
+fi
+
+echo "Tearing down cluster: ${CLUSTER_NAME}"
+
+for dom in $(virsh list --all --name | grep -- "^${CLUSTER_NAME}-" || true); do
+    state=$(virsh domstate "$dom" 2>/dev/null || echo unknown)
+    if [[ $state != "shut off" ]]; then
+        echo "Shutting down $dom (state=$state)..."
+        virsh shutdown "$dom" 2>/dev/null || virsh destroy "$dom" || true
+        while [[ $(virsh domstate "$dom" 2>/dev/null) != "shut off" ]]; do
+            echo "Waiting for $dom to stop..."
+            sleep 1
+        done
+    fi
+
     echo "Undefining $dom and removing storage..."
-    sudo virsh undefine "$dom" --remove-all-storage || true
+    virsh undefine "$dom" --remove-all-storage
 done
 
-rm -rf terraform.tfstate*
+rm -rf "${REPO_ROOT}"/terraform.tfstate*
 
-sudo virsh net-undefine devstack_net || true
-sudo virsh net-destroy devstack_net || true
-sudo virsh pool-undefine devstack || true
-sudo virsh pool-destroy devstack || true
+virsh net-destroy devstack_net 2>/dev/null || true
+virsh net-undefine devstack_net 2>/dev/null || true
+virsh pool-destroy devstack 2>/dev/null || true
+virsh pool-undefine devstack 2>/dev/null || true

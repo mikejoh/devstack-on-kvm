@@ -2,7 +2,7 @@
 
 PRIVATE_SSH_KEY="${PRIVATE_SSH_KEY:-$HOME/.ssh/id_rsa}"
 
-LEASE_INFO=$(sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5, $6}')
+LEASE_INFO=$(virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5, $6}')
 
 if [[ -z $LEASE_INFO ]]; then
     echo "No DHCP leases found for network 'devstack_net'."

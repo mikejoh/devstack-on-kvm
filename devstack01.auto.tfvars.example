@@ -1,0 +1,15 @@
+openstack_rev         = "stable/2025.2"
+image_source          = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+pool_path             = "" # Absolute path to an existing directory writable by the qemu user (typically libvirt-qemu:kvm)
+ssh_public_key_path   = "" # Path to the .pub that should be authorised on the VMs
+cluster_name          = "devstack"
+devstack_network_cidr = "192.168.11.0/24"
+
+devstack_nodes = [
+  {
+    name      = "01"
+    vcpu      = 6
+    memory    = 12288
+    disk_size = 107374182400
+  }
+]

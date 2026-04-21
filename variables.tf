@@ -6,6 +6,10 @@ variable "ssh_public_key_path" {
   type = string
 }
 
+variable "cluster_name" {
+  type = string
+}
+
 variable "devstack_network_cidr" {
   type = string
 }

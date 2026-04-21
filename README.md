@@ -6,109 +6,169 @@ _For those occasions when you want to test things against OpenStack (APIs) but y
 
 ## ✅ Pre-requisites
 
-* KVM
+* KVM (see your favourite Linux distribution how-to)
 * OpenTofu (the `terraform` fork)
 
 ## 🗒️ Important notes
 
-* It'll take some time for the DevStack installation to complete, please run `sudo virsh console devstack01` to follow the installation. Press `Ctrl+5` to exit the console. Please note that we're installing Octavia with everything included (like building of the Octavia worker image), so please be patient.
-* Before starting, stop `ufw` temporarily if it's running locally, i haven't found a good combination of FW rules yet.
-* Info on how to perform configuration customization when installing DevStack check [this](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst) out.
+* See the `scripts/` folder for various utility scripts.
+* You probably want to change `user` and `group` to `libvirt-qemu` and `kvm` respectively in `/etc/libvirt/qemu.conf` to mitigate permission issues on storage pools.
+* All nodes will be running Ubuntu 22.04 by default (tied to the Octavia/DevStack stable branch).
+* Installation takes a while — DevStack + building the Octavia amphora image is 30+ minutes. Watch progress with `sudo virsh console devstack-01` (exit with `Ctrl+5`).
+* Info on DevStack configuration customization is [here](https://github.com/openstack/devstack/blob/master/doc/source/configuration.rst).
 
 ## 🏃 Getting started
 
-### Provision cluster nodes
+### Firewall rules (only if `ufw` is active on the host)
 
-1. Change the `devstack.auto.tfvars` to fit your needs!
-2. Run `tofu init`
-3. Run `tofu plan`
-4. Run `tofu apply`
-5. The needed nodes shall be provisioned with everything included for you to start bootstrapping the cluster.
+Skip this section if you don't run `ufw`. If you do, don't disable it — add narrowly-scoped rules instead. The VMs sit behind a libvirt NAT network and rely on the host to forward their traffic to the internet; during provisioning cloud-init pulls apt packages, DevStack clones several OpenStack repos, and the amphora image builder downloads more. `ufw`'s default-drop `FORWARD` policy will silently kill those packets and bootstrap will hang partway through.
 
-To see the progress of the DevStack installation, run the following command:
+The VM subnet is deterministic — whatever you set as `devstack_network_cidr` in `devstack01.auto.tfvars`. Scope rules to that CIDR rather than to the bridge interface (libvirt picks `virbr0`, `virbr1`, ... based on creation order, and the name can drift if you recreate networks).
 
 ```bash
-sudo virsh console devstack01
+# Replace 192.168.11.0/24 with your devstack_network_cidr.
+
+# Allow forwarded traffic from the VM network to anywhere (internet access)
+sudo ufw route allow from 192.168.11.0/24
+
+# Allow the VMs to reach libvirt's dnsmasq on the host for DHCP and DNS
+sudo ufw allow in on virbr1 to any port 67 proto udp
+sudo ufw allow in on virbr1 to any port 53
+```
+
+If you don't know which bridge libvirt assigned to `devstack_net`, check with `virsh net-dumpxml devstack_net | grep bridge`.
+
+### Set up libvirt for rootless access
+
+The scripts in this repo assume you can talk to the system libvirt daemon without `sudo`. Three things need to be true:
+
+1. **Your user is in the `libvirt` group.** Add yourself if not:
+
+    ```bash
+    sudo usermod -aG libvirt "$USER"
+    ```
+
+    Log out and back in (or `newgrp libvirt`) so the group is active in your shell.
+
+2. **The system libvirt daemon is running.** Recent libvirt (default in Arch, Fedora, RHEL 9+) splits the old monolithic `libvirtd` into one socket-activated daemon per subsystem — `virtqemud` handles VM domains, `virtnetworkd` virtual networks, `virtstoraged` storage pools, `virtnwfilterd` packet filters, `virtsecretd` secrets. Enable their sockets so each starts on demand:
+
+    ```bash
+    sudo systemctl enable --now virtqemud.socket virtnetworkd.socket virtstoraged.socket virtnwfilterd.socket virtsecretd.socket
+    ```
+
+    On distros that still ship the monolithic daemon (e.g. Debian, Ubuntu), `sudo systemctl enable --now libvirtd.socket` replaces all of the above.
+
+3. **`virsh` defaults to `qemu:///system`.** Without configuration, bare `virsh` connects to `qemu:///session` — a separate per-user daemon that does *not* see the VMs this repo creates. Point libvirt clients at the system daemon:
+
+    ```bash
+    mkdir -p ~/.config/libvirt
+    echo 'uri_default = "qemu:///system"' >> ~/.config/libvirt/libvirt.conf
+    ```
+
+Verify the wiring before provisioning:
+
+```bash
+virsh uri          # should print qemu:///system
+virsh list --all   # should return without permission errors
+```
+
+### Provision the VM
+
+1. Generate an SSH keypair that cloud-init will embed into the `cloud` user (skip if you already have one you want to reuse):
+
+    ```bash
+    ssh-keygen -t ed25519 -C "devstack-kvm" -f ~/.ssh/devstack
+    ```
+
+2. Change the `devstack01.auto.tfvars` to fit your needs:
+
+    - `ssh_public_key_path` — path to the `.pub` from step 1.
+    - `pool_path` — an existing directory on your host that qemu (typically running as `libvirt-qemu:kvm`) can read and write.
+    - `cluster_name` — prefix used for libvirt domains and volumes. Default `devstack`; the single node becomes `devstack-01`.
+    - `devstack_network_cidr`, `openstack_rev`, and the `devstack_nodes` list — tune to match what you want.
+
+3. Run `tofu init`, `tofu plan`, `tofu apply`.
+
+4. The node(s) will be provisioned with DevStack (OVN, Neutron, Octavia) running `stack.sh` automatically.
+
+To follow the installation:
+
+```bash
+virsh console devstack-01
 ```
 
 ### Accessing the DevStack environment
 
-_Remember to start your VMs after a reboot, they'll be shut off by default. Run `sudo virsh start` for each VM!_
+_Remember to start your VMs after a reboot; `tofu apply` starts them but they'll be shut off by default after a host reboot. Run `virsh start devstack-01` for each VM._
 
-#### Browse to the DevStack dashboard
+#### Browse to the DevStack dashboard (Horizon)
 
-Open your browser and go to the following URL:
-
-```bash
-http://<devstack01-ip>/
+```
+http://<node-ip>/
 ```
 
-To find out the IP addresses of the VMs you can run the following using `virsh`:
-
-```bash
-sudo virsh net-dhcp-leases devstack_net
-```
-
-The DevStack dashboard (Horizon) can be logged into using the following credentials:
+Credentials:
 
 ```
 Username: demo
 Password: secret
 ```
 
+Find VM IPs with:
+
+```bash
+virsh net-dhcp-leases devstack_net
+```
+
 #### SSH to the DevStack instance
 
-This requires that you have [`fzf`](https://github.com/junegunn/fzf) installed.
+This requires [`fzf`](https://github.com/junegunn/fzf):
 
 ```bash
 PRIVATE_SSH_KEY=~/.ssh/devstack scripts/ssh.sh
 ```
 
-_Make sure you're using the private key that matches the public key added as part of the cluster node provisioning. We're adding a user called `cloud` by default that has the provided public key as one of the `ssh_authorized_keys`._
-
-Run this to generate a new SSH key pair, make sure to point to the public key and it's path in the `tfvars` file:
-
-```
-ssh-keygen -t ed25519 -C "devstack-kvm" -f ~/.ssh/devstack
-```
+_Make sure you're using the private key that matches the public key added as part of node provisioning. A `cloud` user is created with the provided public key as one of the `ssh_authorized_keys`._
 
 #### Using `tmux` and `xpanes` to SSH to all available nodes
-
-Don't forget to inline the private key path below and replace `<PRIVATE_KEY>` before running the command:
 
 ```bash
 tmux
 
-sudo virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -d"/" -f1 | xpanes -l ev -c 'ssh -l cloud -i <PRIVATE_KEY> {}'
+virsh net-dhcp-leases devstack_net | tail -n +3 | awk '{print $5 }' | cut -d"/" -f1 | xpanes -l ev -c 'ssh -l cloud -i <PRIVATE_KEY> {}'
+```
+
+### Building the Octavia amphora image
+
+`install_devstack.sh` runs `stack.sh` but does **not** build the amphora image. After DevStack finishes, SSH to the node and run:
+
+```bash
+sudo -u stack bash /opt/stack/build_octavia_image.sh
 ```
 
 ### How to reach the public IP address range in DevStack
 
 In DevStack the `public` network will have the following range by default: `172.24.4.0/24`.
 
-1. Enable proxy arp in the `devstack01` VM primary interface:
+1. Enable proxy arp on the VM's primary interface (inside the VM):
 
-```
-echo 1 > /proc/sys/net/ipv4/conf/ens3/proxy_arp
-```
+    ```bash
+    echo 1 > /proc/sys/net/ipv4/conf/ens3/proxy_arp
+    ```
 
-_Please note that my interface were named `ens3`._
+2. Associate floating IPs to e.g. loadbalancers or instances, and update security groups if needed (the `default` security group is typically too restrictive).
 
-2. Associating floating IPs to e.g. Loadbalancers or instances
-3. Update security groups if needed, i had to allow more in the `default` security group (created automatically)
-4. Update your local routing table, i needed to do the following:
+3. Update your host's routing table:
 
-```
-sudo ip route add 172.24.4.0/24 dev virbr1
-```
+    ```bash
+    sudo ip route add 172.24.4.0/24 dev virbr1
+    ```
 
-`virbr1` was the bridge that my `devstack01` VM was connected to as of writing this.
+    `virbr1` was the bridge assigned to the VM at time of writing — check with `virsh net-dumpxml devstack_net | grep bridge`. Both of these steps are **not persistent** across reboots.
 
-### Cleaning things up
+### Cleaning up
 
-Run `tofu destroy`.
-
-_Note that this destroys all of KVM related objects._
+Run `scripts/clean_up.sh` to tear down this cluster and reset tofu state. The script reads `cluster_name` from `devstack01.auto.tfvars` and only touches domains whose name starts with that prefix, so unrelated VMs on the same libvirt host are left alone. It also destroys the `devstack_net` network and `devstack` pool (both created by this repo) and removes `terraform.tfstate*` files.
 
 ## 🛠️ Troubleshooting
 
@@ -122,8 +182,6 @@ For `systemd` related documentation see [this](https://docs.openstack.org/devsta
 
 ### DevStack logs
 
-Checking logs:
-
 ```
 journalctl -f -u devstack@*
 journalctl -f -u devstack@<service>
@@ -131,15 +189,15 @@ journalctl -f -u devstack@<service>
 
 ### Various encountered errors and problems
 
-#### Updating objects in Glance 
+#### Updating objects in Glance
 
-When updating (increasing) the `image_size_total` in Glance via the `openstack` CLI the following where seen in the `g-api` logs:
+When updating (increasing) the `image_size_total` in Glance via the `openstack` CLI the following was seen in the `g-api` logs:
 
 ```
 Unhandled error: oslo_db.exception.DBDeadlock: (pymysql.err.OperationalError) (1205, 'Lock wait timeout exceeded; try restarting transaction')
 ```
 
-Fixed by restarting the `mysql` service in the DevStack VM:
+Fixed by restarting `mysql` in the DevStack VM:
 
 ```
 systemctl restart mysql
@@ -147,73 +205,7 @@ systemctl restart mysql
 
 #### Error when listing instances after starting the DevStack VM
 
-Horizon stack trace:
-
-```
-Traceback (most recent call last):
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
-    response = get_response(request)
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
-    response = wrapped_callback(request, *callback_args, **callback_kwargs)
-  File "/opt/stack/horizon/horizon/decorators.py", line 51, in dec
-    return view_func(request, *args, **kwargs)
-  File "/opt/stack/horizon/horizon/decorators.py", line 35, in dec
-    return view_func(request, *args, **kwargs)
-  File "/opt/stack/horizon/horizon/decorators.py", line 35, in dec
-    return view_func(request, *args, **kwargs)
-  File "/opt/stack/horizon/horizon/decorators.py", line 111, in dec
-    return view_func(request, *args, **kwargs)
-  File "/opt/stack/horizon/horizon/decorators.py", line 83, in dec
-    return view_func(request, *args, **kwargs)
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
-    return self.dispatch(request, *args, **kwargs)
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/django/views/generic/base.py", line 143, in dispatch
-    return handler(request, *args, **kwargs)
-  File "/opt/stack/horizon/horizon/tables/views.py", line 222, in get
-    handled = self.construct_tables()
-  File "/opt/stack/horizon/horizon/tables/views.py", line 213, in construct_tables
-    handled = self.handle_table(table)
-  File "/opt/stack/horizon/horizon/tables/views.py", line 122, in handle_table
-    data = self._get_data_dict()
-  File "/opt/stack/horizon/horizon/tables/views.py", line 251, in _get_data_dict
-    self._data = {self.table_class._meta.name: self.get_data()}
-  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 156, in get_data
-    futurist_utils.call_functions_parallel(
-  File "/opt/stack/horizon/openstack_dashboard/utils/futurist_utils.py", line 50, in call_functions_parallel
-    return tuple(f.result() for f in futures)
-  File "/opt/stack/horizon/openstack_dashboard/utils/futurist_utils.py", line 50, in <genexpr>
-    return tuple(f.result() for f in futures)
-  File "/usr/lib/python3.10/concurrent/futures/_base.py", line 451, in result
-    return self.__get_result()
-  File "/usr/lib/python3.10/concurrent/futures/_base.py", line 403, in __get_result
-    raise self._exception
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/futurist/_utils.py", line 45, in run
-    result = self.fn(*self.args, **self.kwargs)
-  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 148, in _get_volumes
-    exceptions.handle(self.request, ignore=True)
-  File "/opt/stack/horizon/openstack_dashboard/dashboards/project/instances/views.py", line 145, in _get_volumes
-    volumes = api.cinder.volume_list(self.request)
-  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 298, in volume_list
-    volumes, _, __ = volume_list_paged(
-  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 337, in volume_list_paged
-    c_client = _cinderclient_with_generic_groups(request)
-  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 289, in _cinderclient_with_generic_groups
-    return _cinderclient_with_features(request, 'groups')
-  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 271, in _cinderclient_with_features
-    version = get_microversion(request, features)
-  File "/opt/stack/horizon/openstack_dashboard/api/cinder.py", line 263, in get_microversion
-    min_ver, max_ver = cinder_client.get_server_version(cinder_url,
-  File "/opt/stack/data/venv/lib/python3.10/site-packages/cinderclient/client.py", line 119, in get_server_version
-    data = json.loads(response.text)
-  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-```
-
-Which pointed at a Cinder related problem. I fixed this by restarting the Cinder API and Cinder Volume services:
+Horizon stack trace pointed at a Cinder-related problem. Fixed by restarting the Cinder API and Cinder Volume services:
 
 ```
 systemctl restart devstack@c-api.service devstack@c-vol.service
