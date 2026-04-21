@@ -2,3 +2,4 @@
 *.img
 .terraform*
 devstack01.auto.tfvars
+CLAUDE.md
